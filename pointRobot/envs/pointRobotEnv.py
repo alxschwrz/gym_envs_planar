@@ -2,15 +2,9 @@ import numpy as np
 import time
 from abc import abstractmethod
 
-from scipy.integrate import odeint
+from planarCommon.planarEnv import PlanarEnv
 
-from gym import core
-from gym.utils import seeding
-
-
-class PointRobotEnv(core.Env):
-
-    metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 15}
+class PointRobotEnv(PlanarEnv):
 
     MAX_VEL = 10
     MAX_POS = 10
@@ -18,36 +12,17 @@ class PointRobotEnv(core.Env):
     MAX_FOR = 100
 
     def __init__(self, n=2, dt=0.01, render=False):
+        super().__init__(render=render, dt=dt)
         self._n = n
-        self.viewer = None
         self._limUpPos = np.ones(self._n) * self.MAX_POS
         self._limUpVel = np.ones(self._n) * self.MAX_VEL
         self._limUpAcc = np.ones(self._n) * self.MAX_ACC
         self._limUpFor = np.ones(self._n) * self.MAX_FOR
         self.setSpaces()
-        self.state = None
-        self.seed()
-        self._dt = dt
-        self._render = render
 
     @abstractmethod
     def setSpaces(self):
         pass
-
-    def dt(self):
-        return self._dt
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def reset(self, pos=None, vel=None):
-        if not isinstance(pos, np.ndarray) or not pos.size == self._n:
-            pos = np.zeros(self._n)
-        if not isinstance(vel, np.ndarray) or not vel.size == self._n:
-            vel = np.zeros(self._n)
-        self.state = np.concatenate((pos, vel))
-        return self._get_ob()
 
     def step(self, a):
         s = self.state
@@ -72,39 +47,20 @@ class PointRobotEnv(core.Env):
     def continuous_dynamics(self, x, t):
         pass
 
-    def integrate(self):
-        x0 = self.state[0 : 2 * self._n]
-        t = np.arange(0, 2 * self._dt, self._dt)
-        ynext = odeint(self.continuous_dynamics, x0, t)
-        return ynext[1]
-
     def render(self, mode="human"):
+        bounds = [5, 5]
+        self.renderCommon(bounds)
         from gym.envs.classic_control import rendering
 
-        s = self.state
-        if s is None:
-            return None
-
-        bound = 5.0
-        if self.viewer is None:
-            self.viewer = rendering.Viewer(500, 500)
-            self.viewer.set_bounds(-bound, bound, -bound, bound)
-
-        self.viewer.draw_line((-bound, 0), (bound, 0))
-        self.viewer.draw_line((0, -bound), (0, bound))
-        x = s[0]
-        y = 0.0
-        if self._n == 2:
-            y = s[1]
-        tf0 = rendering.Transform(rotation=0, translation=(x, y))
+        # drawAxis
+        self.viewer.draw_line((-bounds[0], 0), (bounds[0], 0))
+        self.viewer.draw_line((0, -bounds[1]), (0, bounds[1]))
+        # drawPoint
+        x = self.state[0:2]
+        tf0 = rendering.Transform(rotation=0, translation=(x[0], x[1]))
         joint = self.viewer.draw_circle(.10)
         joint.set_color(.8, .8, 0)
         joint.add_attr(tf0)
         time.sleep(self.dt())
 
         return self.viewer.render(return_rgb_array=mode == "rgb_array")
-
-    def close(self):
-        if self.viewer:
-            self.viewer.close()
-            self.viewer = None

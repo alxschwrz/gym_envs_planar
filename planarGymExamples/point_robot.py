@@ -2,9 +2,12 @@ import gym
 import pointRobot
 import numpy as np
 
+obstacles = False
+goal = False
+
 
 def main():
-    env = gym.make('point-robot-vel-v0', render=True, dt=0.01)
+    env = gym.make("point-robot-vel-v0", render=True, dt=0.01)
     defaultAction = np.array([-0.2, 0.10])
     defaultAction = lambda t: np.array([np.cos(1.0 * t), np.sin(1.0 * t)])
     initPos = np.array([0.0, -1.0])
@@ -14,6 +17,17 @@ def main():
     cumReward = 0.0
     for e in range(n_episodes):
         ob = env.reset(pos=initPos, vel=initVel)
+        if obstacles:
+            from planarGymExamples.obstacles import sphereObst1, sphereObst2, dynamicSphereObst1, dynamicSphereObst2
+
+            env.addObstacle(sphereObst1)
+            env.addObstacle(sphereObst2)
+            env.addObstacle(dynamicSphereObst1)
+            env.addObstacle(dynamicSphereObst2)
+        if goal:
+            from planarGymExamples.goal import splineGoal
+
+            env.addGoal(splineGoal)
         print("Starting episode")
         t = 0
         for i in range(n_steps):
@@ -26,5 +40,5 @@ def main():
                 break
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

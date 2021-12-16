@@ -1,16 +1,12 @@
 import numpy as np
 import time
+from scipy.integrate import odeint
 from abc import abstractmethod
 
-from scipy.integrate import odeint
-
-from gym import core
-from gym.utils import seeding
+from planarCommon.planarEnv import PlanarEnv
 
 
-class GroundRobotEnv(core.Env):
-
-    metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 15}
+class GroundRobotEnv(PlanarEnv):
 
     BASE_WIDTH = 1.0  # [m]
     BASE_LENGTH = 1.3  # [m]
@@ -27,7 +23,7 @@ class GroundRobotEnv(core.Env):
     MAX_ACC_FORWARD = 100
 
     def __init__(self, render=False, dt=0.01):
-        self.viewer = None
+        super().__init__(render=render, dt=dt)
         self._limUpPos = np.array(
             [self.MAX_POS_BASE, self.MAX_POS_BASE, self.MAX_POS_BASE_THETA]
         )
@@ -40,24 +36,14 @@ class GroundRobotEnv(core.Env):
         )
         self._limUpRelAcc = np.array([self.MAX_ACC_FORWARD, self.MAX_ACC_BASE_THETA])
         self.setSpaces()
-        self.state = np.zeros(5)
         self.pos_der = np.zeros(3)
-        self._dt = dt
-        self.seed()
-        self._render = render
 
     @abstractmethod
     def setSpaces(self):
         pass
 
-    def dt(self):
-        return self._dt
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
     def reset(self, pos=None, vel=None):
+        self.resetCommon()
         """ The velocity is the forward velocity and turning velocity here """
         if not isinstance(pos, np.ndarray) or not pos.size == 3:
             pos = np.zeros(3)
@@ -78,6 +64,13 @@ class GroundRobotEnv(core.Env):
             self.render()
         return (self._get_ob(), reward, terminal, {})
 
+    def integrate(self):
+        self._t += self.dt()
+        x0 = self.state
+        t = np.arange(0, 2 * self._dt, self._dt)
+        ynext = odeint(self.continuous_dynamics, x0, t)
+        return ynext[1]
+
     def _get_ob(self):
         return np.concatenate((self.state, self.pos_der))
 
@@ -88,32 +81,20 @@ class GroundRobotEnv(core.Env):
     def continuous_dynamics(self, x, t):
         pass
 
-    @abstractmethod
-    def integrate(self):
-        x0 = self.state
-        t = np.arange(0, 2 * self._dt, self._dt)
-        ynext = odeint(self.continuous_dynamics, x0, t)
-        return ynext[1]
-
-    def render(self, mode="human"):
-        from gym.envs.classic_control import rendering
-
-        s = self.state
-
+    def render(self, mode="human", final=True):
         bound_x = self.MAX_POS_BASE + 1.0
         bound_y = self.MAX_POS_BASE + 1.0
-        if self.viewer is None:
-            self.viewer = rendering.Viewer(500, 500)
-            self.viewer.set_bounds(-bound_x, bound_x, -bound_y, bound_y)
+        bounds = [bound_x, bound_y]
+        self.renderCommon(bounds)
+        from gym.envs.classic_control import rendering
+
+        # drawAxis
         self.viewer.draw_line((-bound_x, 0.0), (bound_x, 0.0))
         self.viewer.draw_line((0.0, -bound_y), (0.0, bound_y))
 
-        if s is None:
-            return None
+        p = [self.state[0], self.state[1]]
 
-        p = [s[0], s[1]]
-
-        theta = s[2]
+        theta = self.state[2]
         tf = rendering.Transform(rotation=theta, translation=p)
 
         l, r, t, b = (
@@ -142,11 +123,7 @@ class GroundRobotEnv(core.Env):
         wheelbr.add_attr(tf)
         link.set_color(0, 0.8, 0.8)
         link.add_attr(tf)
-        time.sleep(self.dt())
 
-        return self.viewer.render(return_rgb_array=mode == "rgb_array")
-
-    def close(self):
-        if self.viewer:
-            self.viewer.close()
-            self.viewer = None
+        if final:
+            time.sleep(self.dt())
+            return self.viewer.render(return_rgb_array=mode == "rgb_array")
