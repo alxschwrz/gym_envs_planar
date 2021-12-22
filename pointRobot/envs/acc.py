@@ -6,10 +6,10 @@ from pointRobot.envs.pointRobotEnv import PointRobotEnv
 
 class PointRobotAccEnv(PointRobotEnv):
     def setSpaces(self):
-        o = np.concatenate((self._limUpPos, self._limUpVel))
-        self.observation_space = spaces.Box(low=-o, high=o, dtype=np.float64)
+        o = np.concatenate((self._limUpPos, self._limUpVel, self._limUpPos)) ## DELETE last entry only for testing !!
+        self.observation_space = spaces.Box(low=-o, high=o, dtype=np.float32)
         self.action_space = spaces.Box(
-            low=-self._limUpAcc, high=self._limUpAcc, dtype=np.float64
+            low=-self._limUpAcc, high=self._limUpAcc, dtype=np.float32
         )
 
     def continuous_dynamics(self, x, t):
