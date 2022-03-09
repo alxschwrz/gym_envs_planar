@@ -2,6 +2,7 @@ import numpy as np
 import time
 from abc import abstractmethod
 from gym import spaces
+from utils.utils import point_inside_circle
 
 from planarenvs.planarCommon.planarEnv import PlanarEnv
 
@@ -13,9 +14,11 @@ class PointRobotEnv(PlanarEnv):
     MAX_ACC = 10
     MAX_FOR = 100
 
-    def __init__(self, n=2, dt=0.01, render=False):
+    def __init__(self, n=2, dt=0.01, render=False, maxEpisodes=None):
         super().__init__(render=render, dt=dt)
         self._n = n
+        if maxEpisodes is None:
+            self._maxEpisodes = 10000
         self._limits = {
             'pos': {'high': np.ones(self._n) * self.MAX_POS, 'low': np.ones(self._n) * -self.MAX_POS},
             'vel': {'high': np.ones(self._n) * self.MAX_VEL, 'low': np.ones(self._n) * -self.MAX_VEL},
@@ -50,11 +53,32 @@ class PointRobotEnv(PlanarEnv):
     def setSpaces(self):
         pass
 
+    #def _reward(self):
+    #    reward = -1.0 if not self._terminal() else 0.0
+    #    return reward
+
     def _reward(self):
-        reward = -1.0 if not self._terminal() else 0.0
-        return reward
+        reward = 0
+        s = self.state
+        if point_inside_circle(s['x'][0], s['x'][1], self.sensorState['GoalPosition'][0][0], self.sensorState['GoalPosition'][0][1], self._goals[0].epsilon()):
+            # goal reached
+            return 100
+        if bool(abs(s['x'][0]) > self.MAX_POS or abs(s['x'][1]) > self.MAX_POS or s['x'][1] == 3):
+            # out of window
+            return -10
+        return -0.1
 
     def _terminal(self):
+        s = self.state
+        # changed by ALEX
+        s = self.state
+        is_out_of_window = bool(abs(s['x'][0]) > self.MAX_POS or abs(s['x'][1]) > self.MAX_POS or s['x'][1] == 3)
+        goal_pos_reached = point_inside_circle(s['x'][0], s['x'][1], self._goals[0].position()[0],
+                                               self._goals[0].position()[1], self._goals[0].epsilon())
+        max_episodes_reached = bool(self._t >= self._maxEpisodes)
+        # add max episodes
+        if is_out_of_window or goal_pos_reached or max_episodes_reached:
+            return True
         return False
 
     @abstractmethod
