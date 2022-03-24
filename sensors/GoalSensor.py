@@ -37,7 +37,7 @@ class GoalSensor(Sensor):
                 if idx >= self._nbObservations:
                     break
                 currGoalPos = goal.position(t=t)
-                currGoalDist = dist2circ(state['x'], currGoalPos, goal.epsilon())
+                currGoalDist = dist2circ(state['x'], currGoalPos, 0)
                 self._observation[idx] = currGoalDist
 
         return self._observation.clip(-self._limSensor, self._limSensor)
