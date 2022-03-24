@@ -29,3 +29,12 @@ def point_inside_circle(x, y, center_x, center_y, radius):
         return True
     else:
         return False
+
+
+def dist2circ(pointPos, circlePos, circleRadius):
+    diff = pointPos - circlePos
+    dist2center = np.linalg.norm(diff)
+    if dist2center < circleRadius:
+        return np.zeros(2)
+    diff = diff * (dist2center - circleRadius) / dist2center
+    return diff
