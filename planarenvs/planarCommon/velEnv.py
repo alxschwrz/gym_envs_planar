@@ -5,11 +5,11 @@ from gym import spaces
 class VelEnv(object):
     def setSpaces(self):
         self.observation_space = spaces.Dict({
-            'x': spaces.Box(low=-self._limUpPos, high=self._limUpPos, dtype=np.float64),
-            'xdot': spaces.Box(low=-self._limUpVel, high=self._limUpVel, dtype=np.float64)
+            'x': spaces.Box(low=-self._limUpPos, high=self._limUpPos, dtype=np.float32),
+            'xdot': spaces.Box(low=-self._limUpVel, high=self._limUpVel, dtype=np.float32)
         })
         self.action_space = spaces.Box(
-            low=-self._limUpVel, high=self._limUpVel, dtype=np.float64
+            low=-self._limUpVel, high=self._limUpVel, dtype=np.float32
         )
 
     def integrate(self):
