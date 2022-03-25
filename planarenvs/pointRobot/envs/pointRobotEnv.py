@@ -9,7 +9,7 @@ from planarenvs.planarCommon.planarEnv import PlanarEnv
 
 class PointRobotEnv(PlanarEnv):
 
-    MAX_VEL = 10
+    MAX_VEL = 1  # necessary for stable training
     MAX_POS = 10
     MAX_ACC = 10
     MAX_FOR = 100
@@ -30,6 +30,10 @@ class PointRobotEnv(PlanarEnv):
         self._limUpAcc = self._limits['acc']['high']
         self._limUpFor = self._limits['for']['high']
         self.setSpaces()
+
+        from sensors.GoalSensor import GoalSensor
+        goalDistObserver = GoalSensor(nbGoals=1, mode='distance')
+        self.addSensor(goalDistObserver)
 
     def resetLimits(self, **kwargs):
         for key in (kwargs.keys() & self._limits.keys()):
@@ -53,33 +57,78 @@ class PointRobotEnv(PlanarEnv):
     def setSpaces(self):
         pass
 
-    #def _reward(self):
-    #    reward = -1.0 if not self._terminal() else 0.0
-    #    return reward
-
     def _reward(self):
+        # todo: Reward function needs big rework:
+        # todo: shaped reward
+        # todo: removing sensorState from the equation -> done
         reward = 0
         s = self.state
-        if point_inside_circle(s['x'][0], s['x'][1], self.sensorState['GoalPosition'][0][0], self.sensorState['GoalPosition'][0][1], self._goals[0].epsilon()):
-            # goal reached
-            return 100
-        if bool(abs(s['x'][0]) > self.MAX_POS or abs(s['x'][1]) > self.MAX_POS or s['x'][1] == 3):
-            # out of window
-            return -10
-        return -0.1
+
+        # Reward Weights
+        W_GOAL = 1
+        W_OBST = -1
+        W_DIST = -1
+        W_STEP = 0
+
+        # robot inside goal region
+        if point_inside_circle(s['x'][0], s['x'][1], self._goals[0].position()[0],
+                               self._goals[0].position()[1], self._goals[0].epsilon()):
+            reward = reward + W_GOAL
+
+        # robot out of window
+        if bool(abs(s['x'][0]) >= self.MAX_POS or abs(s['x'][1]) >= self.MAX_POS):
+            reward = reward + W_OBST
+
+        # L2 distance weighted reward
+        initialDist = np.sqrt(np.sum(np.power(self._goals[0].position(), 2)))
+        currDist = np.sqrt(np.sum(np.power(self._goals[0].position() - s['x'], 2)))
+        reward = reward + W_DIST * (currDist / initialDist)
+
+        return reward + W_STEP
 
     def _terminal(self):
         s = self.state
-        # changed by ALEX
-        s = self.state
-        is_out_of_window = bool(abs(s['x'][0]) > self.MAX_POS or abs(s['x'][1]) > self.MAX_POS or s['x'][1] == 3)
+        is_out_of_window = bool(abs(s['x'][0]) >= self.MAX_POS or abs(s['x'][1]) >= self.MAX_POS)
         goal_pos_reached = point_inside_circle(s['x'][0], s['x'][1], self._goals[0].position()[0],
                                                self._goals[0].position()[1], self._goals[0].epsilon())
-        max_episodes_reached = bool(self._t >= self._maxEpisodes)
-        # add max episodes
-        if is_out_of_window or goal_pos_reached or max_episodes_reached:
+        max_episodes_reached = bool(self._t >= self._maxEpisodes * self._dt)
+
+        if max_episodes_reached:
             return True
         return False
+
+    def reset(self, pos=None, vel=None):
+        ## new reset method, that configures experiment.
+        # this config can totally setup the whole configuration.
+        self.resetCommon()
+        if not isinstance(pos, np.ndarray) or not pos.size == self._n:
+            pos = np.array([round(np.random.uniform(low=-self._limUpPos[0], high=self._limUpPos[0]), 2),
+                            round(np.random.uniform(low=-self._limUpPos[0], high=self._limUpPos[0]), 2)])
+            pos = np.zeros(self._n)
+        if not isinstance(vel, np.ndarray) or not vel.size == self._n:
+            vel = np.array([round(np.random.uniform(low=-self._limUpVel[0], high=self._limUpVel[0]), 2),
+                            round(np.random.uniform(low=-self._limUpVel[0], high=self._limUpVel[0]), 2)])
+            vel = np.zeros(self._n)
+        self.state = {'x': pos, 'xdot': vel}
+
+        # setting new goal
+        from MotionPlanningGoal.staticSubGoal import StaticSubGoal
+        goalPos = [round(np.random.uniform(low=-self._limUpPos[0], high=self._limUpPos[0]), 2),
+                   round(np.random.uniform(low=-self._limUpPos[0], high=self._limUpPos[0]), 2)]
+        # goalPos = [7, 2]
+        staticGoalDict = {
+            "m": 2, "w": 1.0, "prime": True, 'indices': [0, 1], 'parent_link': 0, 'child_link': 3,
+            'desired_position': goalPos, 'epsilon': 0.5, 'type': "staticSubGoal",
+        }
+        staticGoal = StaticSubGoal(name="goal1", contentDict=staticGoalDict)
+        self.addGoal(staticGoal)
+        # todo: remove this hardcoded sensorState reset.
+        resetSensorState = {}
+        for sensor in self._sensors:
+            # resetSensorState[sensor.name()] = np.zeros(sensor.getOSpaceSize())
+            resetSensorState[sensor.name()] = sensor.sense(self.state, self._goals, self._obsts, self.t())
+        self.sensorState = resetSensorState
+        return self._get_ob()
 
     @abstractmethod
     def continuous_dynamics(self, x, t):
