@@ -27,7 +27,9 @@ class Sensor(ABC):
         return self._nbObservations, 2
 
     def getObservationSpace(self):
-        return spaces.Box(low=-self._limSensor, high=self._limSensor, shape=self.getOSpaceSize(), dtype=np.float64)
+        # todo: test if necessary, quite dirty hack for now
+        #return spaces.Box(low=-self._limSensor, high=self._limSensor, shape=self.getOSpaceSize(), dtype=np.float64)
+        return spaces.Box(low=-self._limSensor, high=self._limSensor, shape=[2], dtype=np.float32)
 
     @abstractmethod
     def _reset(self):
