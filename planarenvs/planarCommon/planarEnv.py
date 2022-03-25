@@ -27,7 +27,6 @@ class WrongObservationError(Exception):
 
 
 class PlanarEnv(core.Env):
-
     metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 15}
 
     def __init__(self, render=False, dt=0.01):
@@ -71,7 +70,7 @@ class PlanarEnv(core.Env):
     def resetCommon(self):
         self._obsts = []
         self._goals = []
-        self._sensors = []
+        # self._sensors = [] # this should not be deleted for RL as part of robot configuration
         self._t = 0.0
 
     def reset(self, pos=None, vel=None):
@@ -95,17 +94,29 @@ class PlanarEnv(core.Env):
             self.render()
         return (self._get_ob(), reward, terminal, {})
 
-
     @abstractmethod
     def _reward(self):
         pass
 
     def _get_ob(self):
+        # clipping observations to observation space limits
+        self.state['x'] = np.clip(self.state['x'], self.observation_space.spaces['x'].low,
+                                  self.observation_space.spaces['x'].high)
+        self.state['xdot'] = np.clip(self.state['xdot'], self.observation_space.spaces['xdot'].low,
+                                     self.observation_space.spaces['xdot'].high)
         observation = dict(self.state)
+
+        # todo: very dirty hack
+        for key in self.sensorState.keys():
+            self.sensorState[key] = np.ndarray.flatten(
+                self.sensorState[key])  # this seems to work, but it breaks the warning
         observation.update(self.sensorState)
-        if not self.observation_space.contains(observation):
-            err = WrongObservationError("The observation does not fit the defined observation space", observation, self.observation_space)
-            warnings.warn(str(err))
+
+        # not used for RL to improve speed
+        # if not self.observation_space.contains(observation):
+        #    err = WrongObservationError("The observation does not fit the defined observation space", observation, self.observation_space)
+        #    warnings.warn(str(err))
+        # print(observation)
         return observation
 
     @abstractmethod
