@@ -14,11 +14,12 @@ class PointRobotEnv(PlanarEnv):
     MAX_ACC = 10
     MAX_FOR = 100
 
-    def __init__(self, n=2, dt=0.01, render=False, maxEpisodes=None):
+    def __init__(self, n=2, dt=0.01, render=False, maxEpisodes=10000, goalSamplingDistRatio=1):
         super().__init__(render=render, dt=dt)
         self._n = n
-        if maxEpisodes is None:
-            self._maxEpisodes = 10000
+        self._maxEpisodes = maxEpisodes
+        self._goalSamplingDistRatio = goalSamplingDistRatio
+
         self._limits = {
             'pos': {'high': np.ones(self._n) * self.MAX_POS, 'low': np.ones(self._n) * -self.MAX_POS},
             'vel': {'high': np.ones(self._n) * self.MAX_VEL, 'low': np.ones(self._n) * -self.MAX_VEL},
@@ -113,8 +114,9 @@ class PointRobotEnv(PlanarEnv):
 
         # setting new goal
         from MotionPlanningGoal.staticSubGoal import StaticSubGoal
-        goalPos = [round(np.random.uniform(low=-self._limUpPos[0], high=self._limUpPos[0]), 2),
-                   round(np.random.uniform(low=-self._limUpPos[0], high=self._limUpPos[0]), 2)]
+        rat = self._goalSamplingDistRatio
+        goalPos = [round(np.random.uniform(low=-self._limUpPos[0]*rat, high=self._limUpPos[0]*rat), 2),
+                   round(np.random.uniform(low=-self._limUpPos[0]*rat, high=self._limUpPos[0]*rat), 2)]
         # goalPos = [7, 2]
         staticGoalDict = {
             "m": 2, "w": 1.0, "prime": True, 'indices': [0, 1], 'parent_link': 0, 'child_link': 3,
