@@ -101,15 +101,15 @@ class PlanarEnv(core.Env):
     def _get_ob(self):
         # clipping observations to observation space limits
         self.state['x'] = np.clip(self.state['x'], self.observation_space.spaces['x'].low,
-                                  self.observation_space.spaces['x'].high)
+                                  self.observation_space.spaces['x'].high).astype(dtype=np.float32)
         self.state['xdot'] = np.clip(self.state['xdot'], self.observation_space.spaces['xdot'].low,
-                                     self.observation_space.spaces['xdot'].high)
+                                     self.observation_space.spaces['xdot'].high).astype(dtype=np.float32)
         observation = dict(self.state)
 
         # todo: very dirty hack
         for key in self.sensorState.keys():
             self.sensorState[key] = np.ndarray.flatten(
-                self.sensorState[key])  # this seems to work, but it breaks the warning
+                self.sensorState[key]).astype(dtype=np.float32)  # this seems to work, but it breaks the warning
         observation.update(self.sensorState)
 
         # not used for RL to improve speed
