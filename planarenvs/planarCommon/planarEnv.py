@@ -67,6 +67,12 @@ class PlanarEnv(core.Env):
     def t(self):
         return self._t
 
+    def goals(self):
+        return self._goals
+
+    def sensors(self):
+        return self._sensors
+
     def resetCommon(self):
         self._obsts = []
         self._goals = []
