@@ -16,9 +16,12 @@ class PointRobotEnv(PlanarEnv):
 
     def __init__(self, n=2, dt=0.01, render=False, maxEpisodes=10000, goalSamplingDistRatio=1):
         super().__init__(render=render, dt=dt)
+        self._lastGoalReached = False
         self._n = n
         self._maxEpisodes = maxEpisodes
         self._goalSamplingDistRatio = goalSamplingDistRatio
+        self._stepsGoalReached = 0
+        self._lastStepGoalReached = False
 
         self._limits = {
             'pos': {'high': np.ones(self._n) * self.MAX_POS, 'low': np.ones(self._n) * -self.MAX_POS},
@@ -94,7 +97,15 @@ class PointRobotEnv(PlanarEnv):
                                                self._goals[0].position()[1], self._goals[0].epsilon())
         max_episodes_reached = bool(self._t >= self._maxEpisodes * self._dt)
 
-        if max_episodes_reached:
+        if goal_pos_reached and self._lastStepGoalReached:
+            self._stepsGoalReached += 1
+            self._lastStepGoalReached = True
+        else:
+            self._stepsGoalReached = 0
+
+        self._lastStepGoalReached = bool(goal_pos_reached)
+
+        if max_episodes_reached or self._stepsGoalReached >= 1000:
             return True
         return False
 
@@ -130,6 +141,8 @@ class PointRobotEnv(PlanarEnv):
             # resetSensorState[sensor.name()] = np.zeros(sensor.getOSpaceSize())
             resetSensorState[sensor.name()] = sensor.sense(self.state, self._goals, self._obsts, self.t())
         self.sensorState = resetSensorState
+        self._lastStepGoalReached = 0
+        self._lastStepGoalReached = False
         return self._get_ob()
 
     @abstractmethod

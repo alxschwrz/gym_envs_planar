@@ -6,7 +6,7 @@ from examples.goal import staticGoal
 
 
 def main():
-    env = gym.make("point-robot-vel-v0", render=True, dt=0.01)
+    env = gym.make("point-robot-vel-v0", render=True, dt=0.01, goalSamplingDistRatio=0.5)
 
     n_episodes = 20
     n_steps = 1000

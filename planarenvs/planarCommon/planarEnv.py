@@ -118,6 +118,12 @@ class PlanarEnv(core.Env):
                 self.sensorState[key]).astype(dtype=np.float32)  # this seems to work, but it breaks the warning
         observation.update(self.sensorState)
 
+        # todo: remove dirty normalization
+        #observation['x'] = observation['x'] / 10
+        #observation['GoalDistance'] = observation['GoalDistance'] / 10
+        #for key in observation.keys():
+        #    observation[key] = observation[key]/10
+
         # not used for RL to improve speed
         # if not self.observation_space.contains(observation):
         #    err = WrongObservationError("The observation does not fit the defined observation space", observation, self.observation_space)
