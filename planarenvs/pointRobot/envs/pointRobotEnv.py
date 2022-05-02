@@ -62,9 +62,6 @@ class PointRobotEnv(PlanarEnv):
         pass
 
     def _reward(self):
-        # todo: Reward function needs big rework:
-        # todo: shaped reward
-        # todo: removing sensorState from the equation -> done
         reward = 0
         s = self.state
 
@@ -91,23 +88,31 @@ class PointRobotEnv(PlanarEnv):
         return reward + W_STEP
 
     def _terminal(self):
-        s = self.state
-        is_out_of_window = bool(abs(s['x'][0]) >= self.MAX_POS or abs(s['x'][1]) >= self.MAX_POS)
-        goal_pos_reached = point_inside_circle(s['x'][0], s['x'][1], self._goals[0].position()[0],
-                                               self._goals[0].position()[1], self._goals[0].epsilon())
-        max_episodes_reached = bool(self._t >= self._maxEpisodes * self._dt)
+        # todo: parts of this function should be in step and not in the terminal function!
+        if self._maxEpisodesReached or self._isSuccess:
+            return True
+        return False
 
-        if goal_pos_reached and self._lastStepGoalReached:
+    def _compute_success(self):
+        self._maxEpisodesReached = bool(self._t >= self._maxEpisodes * self._dt)
+        self._isOutOfWindow = bool(abs(self.state['x'][0]) >= self.MAX_POS or abs(self.state['x'][1]) >= self.MAX_POS)
+        self._inGoalRegion = point_inside_circle(self.state['x'][0], self.state['x'][1], self._goals[0].position()[0],
+                                                 self._goals[0].position()[1], self._goals[0].epsilon())
+        stayInGoalTime = 1000
+        if self._inGoalRegion and self._lastStepGoalReached:
             self._stepsGoalReached += 1
             self._lastStepGoalReached = True
         else:
             self._stepsGoalReached = 0
 
-        self._lastStepGoalReached = bool(goal_pos_reached)
+        self._lastStepGoalReached = bool(self._inGoalRegion)
 
-        if max_episodes_reached or self._stepsGoalReached >= 1000:
-            return True
-        return False
+        if self._stepsGoalReached >= stayInGoalTime:
+            self._isSuccess = True
+
+        if self._maxEpisodesReached:
+            self._isSuccess = False
+
 
     def reset(self, pos=None, vel=None):
         ## new reset method, that configures experiment.

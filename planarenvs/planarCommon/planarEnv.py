@@ -6,6 +6,7 @@ import warnings
 from gym import core
 from gym.utils import seeding
 from gym import spaces
+from utils.utils import point_inside_circle
 
 
 class WrongObservationError(Exception):
@@ -40,6 +41,11 @@ class PlanarEnv(core.Env):
         self._obsts = []
         self._goals = []
         self._sensors = []
+        self._isSuccess = None
+        self._maxEpisodesReached = False
+        self._inGoalRegion = False
+        self._stepsGoalReached = 0
+        self._lastStepGoalReached = False
 
     @abstractmethod
     def setSpaces(self):
@@ -78,6 +84,9 @@ class PlanarEnv(core.Env):
         self._goals = []
         # self._sensors = [] # this should not be deleted for RL as part of robot configuration
         self._t = 0.0
+        self._isSuccess = None
+        self._maxEpisodesReached = False
+        self._inGoalRegion = False
 
     def reset(self, pos=None, vel=None):
         self.resetCommon()
@@ -96,9 +105,21 @@ class PlanarEnv(core.Env):
             self.sensorState[sensor.name()] = sensor.sense(self.state, self._goals, self._obsts, self.t())
         terminal = self._terminal()
         reward = self._reward()
+        info = {}
+        info['desired_goal'] = self._goals[0].position()
+        self._compute_success()
+        if terminal:
+            if self._isSuccess:
+                info["is_success"] = True
+            else:
+                info["is_success"] = False
         if self._render:
             self.render()
-        return (self._get_ob(), reward, terminal, {})
+        return (self._get_ob(), reward, terminal, info)
+
+    @abstractmethod
+    def _compute_success(self):
+        pass
 
     @abstractmethod
     def _reward(self):
@@ -113,10 +134,13 @@ class PlanarEnv(core.Env):
         observation = dict(self.state)
 
         # todo: very dirty hack
-        for key in self.sensorState.keys():
-            self.sensorState[key] = np.ndarray.flatten(
-                self.sensorState[key]).astype(dtype=np.float32)  # this seems to work, but it breaks the warning
-        observation.update(self.sensorState)
+        try:
+            for key in self.sensorState.keys():
+                self.sensorState[key] = np.ndarray.flatten(
+                    self.sensorState[key]).astype(dtype=np.float32)  # this seems to work, but it breaks the warning
+            observation.update(self.sensorState)
+        except:
+            pass
 
         # todo: remove dirty normalization
         #observation['x'] = observation['x'] / 10
