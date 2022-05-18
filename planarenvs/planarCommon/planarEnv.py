@@ -106,8 +106,9 @@ class PlanarEnv(core.Env):
         terminal = self._terminal()
         reward = self._reward()
         info = {}
-        info['desired_goal'] = self._goals[0].position()
+        # info['desired_goal'] = self._goals[0].position()
         self._compute_success()
+        reward = self._reward()
         if terminal:
             if self._isSuccess:
                 info["is_success"] = True
@@ -132,7 +133,6 @@ class PlanarEnv(core.Env):
         self.state['xdot'] = np.clip(self.state['xdot'], self.observation_space.spaces['xdot'].low,
                                      self.observation_space.spaces['xdot'].high).astype(dtype=np.float32)
         observation = dict(self.state)
-
         # todo: very dirty hack
         try:
             for key in self.sensorState.keys():
